@@ -1,0 +1,7 @@
+streamlit
+pandas
+numpy
+random
+os
+PIL
+google.generativeai
