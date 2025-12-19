@@ -2,11 +2,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from PIL import Image, ImageDraw
+import google.generativeai as genai
 
-# ----------------------- API Key -----------------------
+# ----------------------- API Key & Config -----------------------
+# Ensure this matches the key name in your .streamlit/secrets.toml
 GEMINI_API_KEY = st.secrets.get("GENAI_API_KEY", None)
 
-# ----------------------- Page config -----------------------
 st.set_page_config(
     page_title="Intelligent AgroGuide",
     page_icon="🌾",
@@ -14,37 +15,34 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ----------------------- SAFE Gemini Loader -----------------------
-def get_gemini():
+# ----------------------- Gemini Setup -----------------------
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    st.error("⚠️ GENAI_API_KEY not found in Streamlit Secrets.")
+
+def call_gemini(prompt: str, image=None) -> str:
+    """Sends text and optional image to Gemini 1.5 Flash."""
     try:
-        import google.generativeai as genai
-        if GEMINI_API_KEY:
-            genai.configure(api_key=GEMINI_API_KEY)
-            return genai
-        return None
-    except ModuleNotFoundError:
-        return None
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        # System instructions included in the prompt for context
+        full_prompt = (
+            f"You are an expert Indian agriculture advisor. "
+            f"Answer in Tamil in a clear, farmer-friendly way.\n\n"
+            f"Question: {prompt}"
+        )
+        
+        if image:
+            response = model.generate_content([full_prompt, image])
+        else:
+            response = model.generate_content(full_prompt)
+            
+        return response.text.strip()
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
 
-# ----------------------- GEMINI CALL -----------------------
-def call_gemini(prompt: str) -> str:
-    genai = get_gemini()
-    if not genai:
-        return "❌ Gemini API not available. Please add a valid GENAI_API_KEY."
-
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(
-        f"You are an expert Indian agriculture advisor.\n"
-        f"Answer in Tamil in a clear, farmer-friendly way.\n\n"
-        f"Question: {prompt}"
-    )
-    return response.text.strip()
-
-# ----------------------- MAIN AI FUNCTION -----------------------
-def agro_ai(prompt: str) -> str:
-    """Use Gemini only."""
-    return call_gemini(prompt)
-
-# ----------------------- Styling -----------------------
+# ----------------------- UI Styling -----------------------
 def header_animation():
     st.markdown(
         """
@@ -54,8 +52,9 @@ def header_animation():
             padding:40px;
             border-radius:14px;
             color:white;
+            margin-bottom: 25px;
         }
-        .small {color:#d1fae5;font-size:14px}
+        .small {color:#d1fae5;font-size:16px}
         </style>
         <div class='hero'>
             <h1>🌾 Intelligent AgroGuide</h1>
@@ -74,18 +73,17 @@ with st.sidebar:
     soil_ph = st.slider("Soil pH", 4.0, 10.0, 7.2, 0.1)
 
     st.divider()
-    if GEMINI_API_KEY and get_gemini():
+    if GEMINI_API_KEY:
         st.success("✅ Gemini AI Connected")
     else:
-        st.error("❌ Gemini API not available. Please add a valid GENAI_API_KEY.")
-
-# ----------------------- Header -----------------------
-header_animation()
+        st.error("❌ API Key Missing")
 
 # ----------------------- Main Layout -----------------------
+header_animation()
+
 col1, col2 = st.columns((2, 1))
 
-# ================= LEFT COLUMN =================
+# ================= LEFT COLUMN: AI Interaction =================
 with col1:
     st.subheader("💬 Ask AgroGuide")
     user_q = st.text_input(
@@ -93,42 +91,46 @@ with col1:
         "White insects on tomato leaves, what should I do?"
     )
 
-    if st.button("Ask AgroGuide"):
-        with st.spinner("Analyzing your question with Gemini AI..."):
-            st.success(agro_ai(user_q))
+    if st.button("Ask AgroGuide", use_container_width=True):
+        with st.spinner("Analyzing with Gemini AI..."):
+            answer = call_gemini(user_q)
+            st.success(answer)
 
     st.markdown("---")
 
     st.subheader("🌱 Intelligent Crop Planner")
-    rainfall = st.slider("Expected Monthly Rainfall (mm)", 0, 500, 100)
-    season = st.selectbox("Season", ["Kharif", "Rabi", "Summer"])
+    r_col1, r_col2 = st.columns(2)
+    with r_col1:
+        rainfall = st.slider("Monthly Rainfall (mm)", 0, 500, 100)
+    with r_col2:
+        season = st.selectbox("Season", ["Kharif", "Rabi", "Summer"])
 
-    if st.button("Get Crop Suggestions"):
-        prompt = (
-            f"Soil type: {soil_type}, pH: {soil_ph}, "
-            f"Rainfall: {rainfall}mm, Season: {season}"
+    if st.button("Get Crop Suggestions", use_container_width=True):
+        planner_prompt = (
+            f"Based on Soil: {soil_type}, pH: {soil_ph}, "
+            f"Rainfall: {rainfall}mm, and Season: {season}, "
+            f"suggest the best crops to plant."
         )
-        st.info(agro_ai(prompt))
+        with st.spinner("Planning crops..."):
+            st.info(call_gemini(planner_prompt))
 
     st.markdown("---")
 
     st.subheader("🔍 Pest Detection")
-    uploaded = st.file_uploader("Upload a leaf image", ["jpg", "png", "jpeg"])
+    uploaded = st.file_uploader("Upload a leaf image", type=["jpg", "png", "jpeg"])
 
     if uploaded:
-        image = Image.open(uploaded)
+        image_data = Image.open(uploaded)
+        st.image(image_data, caption="Uploaded Image", use_container_width=True)
+        
+        if st.button("Analyze Pest & Disease", use_container_width=True):
+            with st.spinner("Scanning image..."):
+                pest_prompt = "Examine this leaf image. Identify any pests or diseases and suggest organic treatments in Tamil."
+                st.warning(call_gemini(pest_prompt, image=image_data))
     else:
-        image = Image.new("RGB", (500, 300), "#fefce8")
-        draw = ImageDraw.Draw(image)
-        draw.text((20, 20), "Sample Leaf Image", fill="green")
+        st.info("Please upload an image to use the Pest Detection feature.")
 
-    st.image(image, use_column_width=True)
-
-    if st.button("Analyze Pest"):
-        prompt = "Identify pest and suggest organic treatment in Tamil."
-        st.warning(agro_ai(prompt))
-
-# ================= RIGHT COLUMN =================
+# ================= RIGHT COLUMN: Analytics =================
 with col2:
     st.subheader("📈 Market Price Trends")
     crop = st.selectbox("Select Crop", ["Rice", "Tomato", "Ragi", "Maize", "Wheat"])
@@ -136,23 +138,21 @@ with col2:
     days = np.arange(30)
     prices = 900 + np.sin(days / 4) * 80 + np.random.normal(0, 20, 30)
     df = pd.DataFrame({"Day": days, "Price": prices})
-
     st.line_chart(df.set_index("Day"))
-    st.caption("Simulated mandi prices (₹/quintal)")
+    st.caption(f"Simulated {crop} mandi prices (₹/quintal)")
 
     st.markdown("---")
 
     st.subheader("💧 Irrigation Advice")
-    moisture = st.slider("Soil Moisture Level", 0, 100, 40)
-    rain_chance = st.slider("Rain Chance (%)", 0, 100, 30)
+    moisture = st.slider("Soil Moisture %", 0, 100, 40)
+    rain_chance = st.slider("Rain Chance %", 0, 100, 30)
 
-    if st.button("Get Irrigation Advice"):
-        prompt = (
-            f"Soil moisture: {moisture}, "
-            f"Rain chance: {rain_chance}%, "
-            "Provide irrigation advice in Tamil."
+    if st.button("Get Irrigation Advice", use_container_width=True):
+        irr_prompt = (
+            f"Current soil moisture is {moisture}% and rain probability is {rain_chance}%. "
+            "Should I irrigate today? Answer in Tamil."
         )
-        st.info(agro_ai(prompt))
+        st.info(call_gemini(irr_prompt))
 
 # ----------------------- Footer -----------------------
 st.markdown("---")
