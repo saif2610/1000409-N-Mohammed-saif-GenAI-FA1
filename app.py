@@ -1,6 +1,6 @@
 """
 Intelligent AgroGuide - Streamlit App
-(Crash-proof Gemini integration – Streamlit Cloud safe)
+(Smart fallback + Crash-proof Gemini integration)
 """
 
 import streamlit as st
@@ -31,17 +31,48 @@ def get_gemini():
     except ModuleNotFoundError:
         return None
 
-# ----------------------- AI Functions -----------------------
+# ----------------------- SMART MOCK AI (NO RANDOM WRONG ANSWERS) -----------------------
 def mock_ai_response(prompt: str) -> str:
-    responses = [
-        "White insects are likely whiteflies. Spray neem oil weekly and remove infected leaves.",
-        "Low rainfall areas are suitable for millets like ragi and bajra.",
-        "Use drip irrigation early morning to reduce water loss.",
-        "Apply organic compost and green manure to improve soil health.",
-        "Crop rotation with legumes improves soil nitrogen naturally.",
-    ]
-    return random.choice(responses)
+    p = prompt.lower()
 
+    # Pest / insect detection
+    if any(word in p for word in ["white insect", "whitefly", "tomato", "leaf", "pest"]):
+        return (
+            "White insects on tomato leaves are usually whiteflies. "
+            "Spray neem oil or neem seed kernel extract every 7 days, "
+            "remove heavily infected leaves, and use yellow sticky traps "
+            "to control their spread."
+        )
+
+    # Crop planning
+    if any(word in p for word in ["crop", "rainfall", "season", "soil"]):
+        return (
+            "Based on soil type and rainfall, crops like ragi, bajra, "
+            "sorghum, or pulses are suitable options. "
+            "Choose crops that match local climate conditions."
+        )
+
+    # Irrigation
+    if any(word in p for word in ["irrigation", "water", "moisture"]):
+        return (
+            "Irrigate early in the morning to reduce evaporation losses. "
+            "Use drip irrigation or mulching to conserve water."
+        )
+
+    # Soil health
+    if "ph" in p or "soil health" in p:
+        return (
+            "Add organic compost and green manure to improve soil health. "
+            "Crop rotation with legumes helps restore nutrients naturally."
+        )
+
+    # Default safe response
+    return (
+        "Maintain regular crop monitoring, use organic inputs where possible, "
+        "and follow climate-appropriate farming practices."
+    )
+
+# ----------------------- GEMINI CALL -----------------------
 def call_gemini(prompt: str) -> str:
     genai = get_gemini()
     if not genai:
@@ -51,7 +82,7 @@ def call_gemini(prompt: str) -> str:
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(
             f"You are an expert Indian agriculture advisor.\n"
-            f"Give simple, practical, farmer-friendly advice.\n\n"
+            f"Give clear, practical, farmer-friendly advice.\n\n"
             f"Question: {prompt}"
         )
         return response.text.strip()
@@ -96,7 +127,7 @@ with st.sidebar:
     if GEMINI_API_KEY and get_gemini():
         st.success("Gemini AI Connected")
     else:
-        st.info("Demo Mode (Mock AI)")
+        st.info("Demo Mode (Smart Fallback AI)")
 
 # ----------------------- Header -----------------------
 header_animation()
@@ -113,7 +144,7 @@ with col1:
     )
 
     if st.button("Ask AgroGuide"):
-        with st.spinner("Thinking like an agriculture expert..."):
+        with st.spinner("Analyzing your question..."):
             st.success(agro_ai(user_q))
 
     st.markdown("---")
@@ -144,7 +175,7 @@ with col1:
     st.image(image, use_column_width=True)
 
     if st.button("Analyze Pest"):
-        st.warning(agro_ai("Identify pest and suggest organic treatment"))
+        st.warning(agro_ai("White insects on tomato leaves"))
 
 # ================= RIGHT COLUMN =================
 with col2:
