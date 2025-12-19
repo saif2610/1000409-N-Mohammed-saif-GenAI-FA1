@@ -1,12 +1,10 @@
-"""
-Intelligent AgroGuide - Streamlit App
-(Gemini-only, no fallback mock AI)
-"""
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 from PIL import Image, ImageDraw
+
+# ----------------------- API Key -----------------------
+GEMINI_API_KEY = st.secrets.get("GENAI_API_KEY", None)
 
 # ----------------------- Page config -----------------------
 st.set_page_config(
@@ -15,9 +13,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-# ----------------------- API Key -----------------------
-GEMINI_API_KEY = st.secrets.get("GENAI_API_KEY", None)
 
 # ----------------------- SAFE Gemini Loader -----------------------
 def get_gemini():
@@ -34,7 +29,7 @@ def get_gemini():
 def call_gemini(prompt: str) -> str:
     genai = get_gemini()
     if not genai:
-        return "❌ Gemini API not available. Please check your API key and connection."
+        return "❌ Gemini API not available. Please add a valid GENAI_API_KEY."
 
     model = genai.GenerativeModel("gemini-1.5-flash")
     response = model.generate_content(
