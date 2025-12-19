@@ -1,6 +1,6 @@
 """
 Intelligent AgroGuide - Streamlit App
-(Gemini-first behavior, smart fallback only if needed)
+(Gemini-only, no fallback mock AI)
 """
 
 import streamlit as st
@@ -34,62 +34,20 @@ def get_gemini():
 def call_gemini(prompt: str) -> str:
     genai = get_gemini()
     if not genai:
-        return "Gemini API not available."
+        return "❌ Gemini API not available. Please check your API key and connection."
 
     model = genai.GenerativeModel("gemini-1.5-flash")
     response = model.generate_content(
         f"You are an expert Indian agriculture advisor.\n"
-        f"Give clear, practical, farmer-friendly advice.\n\n"
+        f"Answer in Tamil in a clear, farmer-friendly way.\n\n"
         f"Question: {prompt}"
     )
     return response.text.strip()
 
-# ----------------------- SMART MOCK AI (ONLY IF GEMINI MISSING) -----------------------
-def mock_ai_response(prompt: str) -> str:
-    p = prompt.lower()
-
-    # Pest / insect detection
-    if any(word in p for word in ["white insect", "whitefly", "tomato", "leaf", "pest"]):
-        return (
-            "வெள்ளை ஈச்சிகள் தக்காளி இலைகளில் பொதுவாக வெள்ளை ஈச்சிகள் ஆகும். "
-            "நீம் எண்ணெய் அல்லது நீம் விதை சார்பு சாறு 7 நாட்களுக்கு ஒருமுறை பூசவும், "
-            "பலவீனமடைந்த இலைகளை அகற்றவும், மஞ்சள் ஸ்டிக்கி டிராப்புகள் வைக்கவும்."
-        )
-
-    # Crop planning (Tamil)
-    if any(word in p for word in ["crop", "rainfall", "season", "soil"]):
-        return (
-            "கருப்பு மண்ணில் பயிர் வளர்க்க, ராகி, பஜ்ரா, சோரும் அல்லது பருப்புகள் "
-            "பயிரிட சிறந்தவை. உங்கள் உள்ளூர் வானிலை மற்றும் மண் நிபந்தனைகளுக்கு ஏற்ப "
-            "பயிர்களை தேர்ந்தெடுக்கவும்."
-        )
-
-    # Irrigation
-    if any(word in p for word in ["irrigation", "water", "moisture"]):
-        return (
-            "வகை முறை நீர்ப்பாசனத்தை காலை நேரத்தில் செய்யவும். "
-            "நீர் சேமிக்க திரிப் நீர்ப்பாசனம் மற்றும் மல்சிங் பயன்படுத்தவும்."
-        )
-
-    # Soil health
-    if "ph" in p or "soil health" in p:
-        return (
-            "மண்ணின் ஆரோக்கியத்தை மேம்படுத்த ஜீவராசி உரம் மற்றும் பச்சை உரம் பயன்படுத்தவும். "
-            "பருப்பு பயிர்கள் மாறி நாற்றங்களை இயற்கையாக மீட்டெடுக்க உதவும்."
-        )
-
-    # Default safe response
-    return (
-        "பயிர்களை முறையாக கண்காணிக்கவும், இயற்கை உள்ளீடுகளை பயன்படுத்தவும், "
-        "மற்றும் காலநிலை-உகந்த விவசாய நடைமுறைகளை பின்பற்றவும்."
-    )
-
 # ----------------------- MAIN AI FUNCTION -----------------------
 def agro_ai(prompt: str) -> str:
-    """Use Gemini if available, otherwise smart fallback."""
-    if get_gemini():
-        return call_gemini(prompt)
-    return mock_ai_response(prompt)
+    """Use Gemini only."""
+    return call_gemini(prompt)
 
 # ----------------------- Styling -----------------------
 def header_animation():
@@ -117,14 +75,14 @@ with st.sidebar:
     st.header("👨‍🌾 Farmer Profile")
     name = st.text_input("Name", "S. Muthuvel")
     location = st.text_input("Location", "Tamil Nadu")
-    soil_type = st.selectbox("Soil Type", ["Loamy", "Sandy", "Clay", "Alkaline"])
+    soil_type = st.selectbox("Soil Type", ["Loamy", "Sandy", "Clay", "Red Soil", "Black Soil", "Alkaline"])
     soil_ph = st.slider("Soil pH", 4.0, 10.0, 7.2, 0.1)
 
     st.divider()
     if GEMINI_API_KEY and get_gemini():
-        st.success("✅ Gemini AI Connected — mock AI disabled")
+        st.success("✅ Gemini AI Connected")
     else:
-        st.info("ℹ Demo Mode (Smart Fallback AI active)")
+        st.error("❌ Gemini API not available. Please add a valid GENAI_API_KEY.")
 
 # ----------------------- Header -----------------------
 header_animation()
@@ -141,7 +99,7 @@ with col1:
     )
 
     if st.button("Ask AgroGuide"):
-        with st.spinner("Analyzing your question..."):
+        with st.spinner("Analyzing your question with Gemini AI..."):
             st.success(agro_ai(user_q))
 
     st.markdown("---")
@@ -172,7 +130,8 @@ with col1:
     st.image(image, use_column_width=True)
 
     if st.button("Analyze Pest"):
-        st.warning(agro_ai("White insects on tomato leaves"))
+        prompt = "Identify pest and suggest organic treatment in Tamil."
+        st.warning(agro_ai(prompt))
 
 # ================= RIGHT COLUMN =================
 with col2:
@@ -193,12 +152,12 @@ with col2:
     rain_chance = st.slider("Rain Chance (%)", 0, 100, 30)
 
     if st.button("Get Irrigation Advice"):
-        if rain_chance > 60:
-            st.success("Skip irrigation — rainfall expected.")
-        elif moisture < 30:
-            st.warning("Light irrigation recommended early morning.")
-        else:
-            st.info("Monitor crop condition; irrigation optional.")
+        prompt = (
+            f"Soil moisture: {moisture}, "
+            f"Rain chance: {rain_chance}%, "
+            "Provide irrigation advice in Tamil."
+        )
+        st.info(agro_ai(prompt))
 
 # ----------------------- Footer -----------------------
 st.markdown("---")
