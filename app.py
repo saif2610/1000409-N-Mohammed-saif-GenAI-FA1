@@ -1,12 +1,12 @@
 """
-Intelligent AgroGuide - Streamlit App (Crash-proof Gemini integration)
+Intelligent AgroGuide - Streamlit App
+(Crash-proof Gemini integration – Streamlit Cloud safe)
 """
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import random
-import os
 from PIL import Image, ImageDraw
 
 # ----------------------- Page config -----------------------
@@ -17,8 +17,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ----------------------- API Key -----------------------
-genai.configure(api_key=st.secrets["GENAI_API_KEY"])
+# ----------------------- API Key (Streamlit Secrets) -----------------------
+GEMINI_API_KEY = st.secrets.get("GENAI_API_KEY", None)
 
 # ----------------------- SAFE Gemini Loader -----------------------
 def get_gemini():
@@ -114,8 +114,7 @@ with col1:
 
     if st.button("Ask AgroGuide"):
         with st.spinner("Thinking like an agriculture expert..."):
-            answer = agro_ai(user_q)
-            st.success(answer)
+            st.success(agro_ai(user_q))
 
     st.markdown("---")
 
@@ -145,8 +144,7 @@ with col1:
     st.image(image, use_column_width=True)
 
     if st.button("Analyze Pest"):
-        diagnosis = agro_ai("Identify pest and suggest organic treatment")
-        st.warning(diagnosis)
+        st.warning(agro_ai("Identify pest and suggest organic treatment"))
 
 # ================= RIGHT COLUMN =================
 with col2:
@@ -178,5 +176,5 @@ with col2:
 st.markdown("---")
 st.markdown(
     "<center><b>AgroGuide is live — smart farming made simple 🌱</b></center>",
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
