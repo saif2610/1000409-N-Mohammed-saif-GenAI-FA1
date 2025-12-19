@@ -1,4 +1,3 @@
-#AIzaSyA7_AqAwFA1grMT-sZ-AGT8Pk69TpMy_Go
 """
 Intelligent AgroGuide - Streamlit App (Crash-proof Gemini integration)
 """
@@ -19,7 +18,7 @@ st.set_page_config(
 )
 
 # ----------------------- API Key -----------------------
-GEMINI_API_KEY = os.getenv("AIzaSyA7_AqAwFA1grMT-sZ-AGT8Pk69TpMy_Go")
+genai.configure(api_key=st.secrets["GENAI_API_KEY"])
 
 # ----------------------- SAFE Gemini Loader -----------------------
 def get_gemini():
