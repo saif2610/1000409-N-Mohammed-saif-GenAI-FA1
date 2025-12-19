@@ -1,12 +1,11 @@
 """
 Intelligent AgroGuide - Streamlit App
-(Smart fallback + Crash-proof Gemini integration)
+(Gemini-first behavior, smart fallback only if needed)
 """
 
 import streamlit as st
 import pandas as pd
 import numpy as np
-import random
 from PIL import Image, ImageDraw
 
 # ----------------------- Page config -----------------------
@@ -17,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ----------------------- API Key (Streamlit Secrets) -----------------------
+# ----------------------- API Key -----------------------
 GEMINI_API_KEY = st.secrets.get("GENAI_API_KEY", None)
 
 # ----------------------- SAFE Gemini Loader -----------------------
@@ -31,66 +30,64 @@ def get_gemini():
     except ModuleNotFoundError:
         return None
 
-# ----------------------- SMART MOCK AI (NO RANDOM WRONG ANSWERS) -----------------------
+# ----------------------- GEMINI CALL -----------------------
+def call_gemini(prompt: str) -> str:
+    genai = get_gemini()
+    if not genai:
+        return "Gemini API not available."
+
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content(
+        f"You are an expert Indian agriculture advisor.\n"
+        f"Give clear, practical, farmer-friendly advice.\n\n"
+        f"Question: {prompt}"
+    )
+    return response.text.strip()
+
+# ----------------------- SMART MOCK AI (ONLY IF GEMINI MISSING) -----------------------
 def mock_ai_response(prompt: str) -> str:
     p = prompt.lower()
 
     # Pest / insect detection
     if any(word in p for word in ["white insect", "whitefly", "tomato", "leaf", "pest"]):
         return (
-            "White insects on tomato leaves are usually whiteflies. "
-            "Spray neem oil or neem seed kernel extract every 7 days, "
-            "remove heavily infected leaves, and use yellow sticky traps "
-            "to control their spread."
+            "வெள்ளை ஈச்சிகள் தக்காளி இலைகளில் பொதுவாக வெள்ளை ஈச்சிகள் ஆகும். "
+            "நீம் எண்ணெய் அல்லது நீம் விதை சார்பு சாறு 7 நாட்களுக்கு ஒருமுறை பூசவும், "
+            "பலவீனமடைந்த இலைகளை அகற்றவும், மஞ்சள் ஸ்டிக்கி டிராப்புகள் வைக்கவும்."
         )
 
-    # Crop planning
+    # Crop planning (Tamil)
     if any(word in p for word in ["crop", "rainfall", "season", "soil"]):
         return (
-            "Based on soil type and rainfall, crops like ragi, bajra, "
-            "sorghum, or pulses are suitable options. "
-            "Choose crops that match local climate conditions."
+            "கருப்பு மண்ணில் பயிர் வளர்க்க, ராகி, பஜ்ரா, சோரும் அல்லது பருப்புகள் "
+            "பயிரிட சிறந்தவை. உங்கள் உள்ளூர் வானிலை மற்றும் மண் நிபந்தனைகளுக்கு ஏற்ப "
+            "பயிர்களை தேர்ந்தெடுக்கவும்."
         )
 
     # Irrigation
     if any(word in p for word in ["irrigation", "water", "moisture"]):
         return (
-            "Irrigate early in the morning to reduce evaporation losses. "
-            "Use drip irrigation or mulching to conserve water."
+            "வகை முறை நீர்ப்பாசனத்தை காலை நேரத்தில் செய்யவும். "
+            "நீர் சேமிக்க திரிப் நீர்ப்பாசனம் மற்றும் மல்சிங் பயன்படுத்தவும்."
         )
 
     # Soil health
     if "ph" in p or "soil health" in p:
         return (
-            "Add organic compost and green manure to improve soil health. "
-            "Crop rotation with legumes helps restore nutrients naturally."
+            "மண்ணின் ஆரோக்கியத்தை மேம்படுத்த ஜீவராசி உரம் மற்றும் பச்சை உரம் பயன்படுத்தவும். "
+            "பருப்பு பயிர்கள் மாறி நாற்றங்களை இயற்கையாக மீட்டெடுக்க உதவும்."
         )
 
     # Default safe response
     return (
-        "Maintain regular crop monitoring, use organic inputs where possible, "
-        "and follow climate-appropriate farming practices."
+        "பயிர்களை முறையாக கண்காணிக்கவும், இயற்கை உள்ளீடுகளை பயன்படுத்தவும், "
+        "மற்றும் காலநிலை-உகந்த விவசாய நடைமுறைகளை பின்பற்றவும்."
     )
 
-# ----------------------- GEMINI CALL -----------------------
-def call_gemini(prompt: str) -> str:
-    genai = get_gemini()
-    if not genai:
-        return mock_ai_response(prompt)
-
-    try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(
-            f"You are an expert Indian agriculture advisor.\n"
-            f"Give clear, practical, farmer-friendly advice.\n\n"
-            f"Question: {prompt}"
-        )
-        return response.text.strip()
-    except Exception:
-        return mock_ai_response(prompt)
-
+# ----------------------- MAIN AI FUNCTION -----------------------
 def agro_ai(prompt: str) -> str:
-    if GEMINI_API_KEY:
+    """Use Gemini if available, otherwise smart fallback."""
+    if get_gemini():
         return call_gemini(prompt)
     return mock_ai_response(prompt)
 
@@ -125,9 +122,9 @@ with st.sidebar:
 
     st.divider()
     if GEMINI_API_KEY and get_gemini():
-        st.success("Gemini AI Connected")
+        st.success("✅ Gemini AI Connected — mock AI disabled")
     else:
-        st.info("Demo Mode (Smart Fallback AI)")
+        st.info("ℹ Demo Mode (Smart Fallback AI active)")
 
 # ----------------------- Header -----------------------
 header_animation()
@@ -162,7 +159,7 @@ with col1:
 
     st.markdown("---")
 
-    st.subheader("🔍 Pest Detection (Demo)")
+    st.subheader("🔍 Pest Detection")
     uploaded = st.file_uploader("Upload a leaf image", ["jpg", "png", "jpeg"])
 
     if uploaded:
