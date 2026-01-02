@@ -6,7 +6,7 @@ import google.generativeai as genai
 
 # ----------------------- API Key & Config -----------------------
 # Ensure this matches the key name in your .streamlit/secrets.toml
-GEMINI_API_KEY = st.secrets.get("AIzaSyC67LpC-XhFw2v49HjQxT5-424SUWYCRKg", None)
+GEMINI_API_KEY = st.secrets.get("GENAI_API_KEY", None)
 
 st.set_page_config(
     page_title="Intelligent AgroGuide",
